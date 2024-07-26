@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const express = require('express');
 const { createServer } = require('http');
 const WebSocket = require('ws');
+const { v4: uuidv4 } = require('uuid');
 
 const app = express();
 const port = 3000;
@@ -18,27 +19,47 @@ function startMatch(players) {
   console.log("Starting match with players:", players);
 
   // Notify each player that a match has been found
-  players.forEach(player => {
+  players.forEach((player, index) => {
+    const otherPlayerIdx = index === 0 ? 1 : 0;
+    const otherPlayer = players[otherPlayerIdx];
+
     player.send(JSON.stringify({
       type: 'match',
-      message: 'You have been matched with another player!'
+      message: otherPlayer.playerId
     }));
   });
+}
+
+function findPlayer(searchId) {
+  return players.find(player => player.playerId === searchId);
 }
 
 // Handle new connections
 wss.on('connection', function(ws) {
   console.log("Client joined.");
+  const playerId = uuidv4();
 
   // Initially, add client to the queue
-  queue.push({ ws, ready: false });
+  queue.push({ ws, ready: false, playerId });
   console.log("Queue length: " + queue.length);
 
-  // Send "hello world" interval
-  const textInterval = setInterval(() => ws.send("hello world!"), 100);
+  function forwardPlayToOpponent(message) {
+    const {type, otherPlayerId, roomId} = message;
+    const opponent = findPlayer(otherPlayerId);
+
+    opponent.send(JSON.stringify({
+      type,
+      roomId
+    }));
+  }
+
+  // const textInterval = setInterval(() => ws.send(JSON.stringify({
+  //   type: 'test',
+  //   message: 'test json message'
+  // })), 100);
 
   // Send random bytes interval
-  const binaryInterval = setInterval(() => ws.send(crypto.randomBytes(8).buffer), 110);
+  // const binaryInterval = setInterval(() => ws.send(crypto.randomBytes(8).buffer), 110);
 
   ws.on('message', function(data) {
     console.log(data);
@@ -51,7 +72,7 @@ wss.on('connection', function(ws) {
         const client = queue.find(q => q.ws === ws);
         if (client) {
           client.ready = true;
-          console.log("Client marked as ready.");
+          console.log("Client marked as steeady.");
   
           // Check if we have enough ready clients to start a match
           const readyClients = queue.filter(q => q.ready);
@@ -65,6 +86,10 @@ wss.on('connection', function(ws) {
           }
         }
       }
+      else if (message.type === 'divide') {
+
+        forwardPlayToOpponent(message)
+      }
       else if (message.type === 'leave') {
         queue = queue.filter(q => q.ws !== ws);
       }      
@@ -75,8 +100,8 @@ wss.on('connection', function(ws) {
 
   ws.on('close', function() {
     console.log("Client left.");
-    clearInterval(textInterval);
-    clearInterval(binaryInterval);
+    // clearInterval(textInterval);
+    // clearInterval(binaryInterval);
 
     // Remove client from queue if they are still in it
     queue = queue.filter(q => q.ws !== ws);
