@@ -32,7 +32,8 @@ function startMatch(players) {
 }
 
 function findPlayer(searchId) {
-  return players.find(player => player.playerId === searchId);
+  const readyClients = queue.filter(q => q.ready);
+  return readyClients.find(player => player.playerId === searchId);
 }
 
 // Handle new connections
@@ -48,7 +49,7 @@ wss.on('connection', function(ws) {
     const {type, otherPlayerId, roomId} = message;
     const opponent = findPlayer(otherPlayerId);
 
-    opponent.send(JSON.stringify({
+    opponent.ws.send(JSON.stringify({
       type,
       roomId
     }));
