@@ -5,7 +5,7 @@ const WebSocket = require('ws');
 const { v4: uuidv4 } = require('uuid');
 
 const app = express();
-const port = 3000;
+const port = 5000;
 
 const server = createServer(app);
 const wss = new WebSocket.Server({ server });
@@ -23,7 +23,8 @@ function startMatch(players) {
     const otherPlayerIdx = index === 0 ? 1 : 0;
     const otherPlayer = players[otherPlayerIdx];
 
-    player.send(JSON.stringify({
+    console.log('other id', otherPlayer.playerId);
+    player.ws.send(JSON.stringify({
       type: 'match',
       message: otherPlayer.playerId
     }));
@@ -38,7 +39,7 @@ function findPlayer(searchId) {
 wss.on('connection', function(ws) {
   console.log("Client joined.");
   const playerId = uuidv4();
-
+  console.log('player id joined', playerId);
   // Initially, add client to the queue
   queue.push({ ws, ready: false, playerId });
   console.log("Queue length: " + queue.length);
@@ -78,7 +79,7 @@ wss.on('connection', function(ws) {
           const readyClients = queue.filter(q => q.ready);
           if (readyClients.length >= MATCH_SIZE) {
             // Extract the number of clients needed for a match
-            const players = readyClients.splice(0, MATCH_SIZE).map(q => q.ws);
+            const players = readyClients.splice(0, MATCH_SIZE);
             startMatch(players);
   
             // Update the queue
@@ -108,6 +109,6 @@ wss.on('connection', function(ws) {
   });
 });
 
-server.listen(port, function() {
+server.listen(port, '0.0.0.0', function() {
   console.log(`Listening on http://localhost:${port}`);
 });
